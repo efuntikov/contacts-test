@@ -16,6 +16,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.util.*
 import java.util.Collections.synchronizedList
+import java.util.Collections.synchronizedMap
 import kotlin.jvm.Throws
 
 class ContactsRepositoryImpl(
@@ -25,7 +26,7 @@ class ContactsRepositoryImpl(
     private val preferences: SharedPreferences
 ) : ContactsRepository {
 
-    private var contacts = synchronizedList(mutableListOf<Contact>())
+    private var contacts = synchronizedMap(mutableMapOf<String, Contact>())
 
     companion object {
         private val DATA_SOURCE_1 =
@@ -46,7 +47,7 @@ class ContactsRepositoryImpl(
     }
 
     @Throws(Exception::class)
-    override suspend fun getContacts(forced: Boolean): List<Contact> {
+    override suspend fun getContacts(forced: Boolean): ContactsMap {
         if (forced) {
             contacts.clear()
             try {
@@ -66,15 +67,17 @@ class ContactsRepositoryImpl(
     }
 
     @Throws(Exception::class)
-    private suspend fun fetchContacts(): List<Contact> {
+    private suspend fun fetchContacts(): ContactsMap {
         return withContext(Dispatchers.Main) {
             val resource1 = async(Dispatchers.IO) { fetchContactByResource(DATA_SOURCE_1) }
             val resource2 = async(Dispatchers.IO) { fetchContactByResource(DATA_SOURCE_2) }
             val resource3 = async(Dispatchers.IO) { fetchContactByResource(DATA_SOURCE_3) }
 
             val allResourcesDeferred = awaitAll(resource1, resource2, resource3)
-            val result = arrayListOf<Contact>()
-            allResourcesDeferred.map { list -> result.addAll(list) }
+            val result = mutableMapOf<String, Contact>()
+            allResourcesDeferred.map { list -> list.forEach { contact ->
+                contact.id?.let { id -> result.putIfAbsent(id, contact) }
+            } }
 
             return@withContext result
         }
@@ -111,8 +114,6 @@ class ContactsRepositoryImpl(
 
             throw Exception("Failed to parse contacts!")
         }
-
-//        return emptyList()
     }
 
     private fun getFromFile(fileName: String): ByteArray? {

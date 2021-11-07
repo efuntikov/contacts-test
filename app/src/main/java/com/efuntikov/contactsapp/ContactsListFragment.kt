@@ -13,10 +13,11 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import androidx.recyclerview.widget.RecyclerView.NO_POSITION
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.efuntikov.contactsapp.domain.entity.Contact
+import com.efuntikov.contactsapp.domain.repository.contacts.ContactsMap
 import com.google.android.material.snackbar.Snackbar
+import java.lang.ref.WeakReference
 import javax.inject.Inject
 
 class ContactsListFragment : Fragment() {
@@ -84,13 +85,21 @@ class ContactsListFragment : Fragment() {
     }
 
     private class ContactsViewHolder(
-        private val view: ContactsListItemView
-    ) :
-        RecyclerView.ViewHolder(view) {
+        private val view: ContactsListItemView,
+        private val viewModel: WeakReference<ContactsViewModel>
+    ) : RecyclerView.ViewHolder(view) {
+        var contactId: String? = null
+
         fun bind(contact: Contact) {
+            contactId = contact.id
             with(view) {
                 setName(contact.name ?: "")
                 setPhone(contact.phone ?: "")
+                setOnClickListener {
+                    contactId?.let { id ->
+                        viewModel.get()?.navigate(ContactsViewModel.Navigation.CONTACT_DETAIL, id)
+                    }
+                }
             }
         }
     }
@@ -106,17 +115,7 @@ class ContactsListFragment : Fragment() {
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
-            ContactsViewHolder(ContactsListItemView(requireContext()).apply {
-                setOnClickListener {
-                    val position = contactsList.getChildLayoutPosition(it)
-                    if (position != NO_POSITION) {
-                        viewModel.navigate(
-                            ContactsViewModel.Navigation.CONTACT_DETAIL,
-                            position.toString()
-                        )
-                    }
-                }
-            })
+            ContactsViewHolder(ContactsListItemView(requireContext()), WeakReference(viewModel))
 
         override fun onBindViewHolder(holder: ContactsViewHolder, position: Int) {
             filteredResults?.let { holder.bind(it[position]) }
@@ -184,7 +183,7 @@ class ContactsListFragment : Fragment() {
 
         override fun onQueryTextChange(newText: String?): Boolean {
             contactsListAdapter.filter.filter(newText);
-            return false;
+            return false
         }
 
     }

@@ -7,6 +7,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.efuntikov.contactsapp.domain.entity.Contact
+import com.efuntikov.contactsapp.domain.repository.contacts.ContactsMap
 import com.efuntikov.contactsapp.domain.repository.contacts.ContactsRepository
 import kotlinx.coroutines.launch
 import java.util.*
@@ -31,6 +32,8 @@ class ContactsViewModel @Inject constructor(
     private val contacts: MutableLiveData<List<Contact>> = MutableLiveData()
     private val navigation: MutableLiveData<Pair<Navigation, String>> = MutableLiveData()
     private val error: MutableLiveData<String> = MutableLiveData()
+
+    private lateinit var contactsMap: ContactsMap
 
     fun isLoadingVisible(): LiveData<Boolean> = isLoadingVisible
 
@@ -62,6 +65,8 @@ class ContactsViewModel @Inject constructor(
         }
     }
 
+    fun getContactById(contactId: String) = contactsMap[contactId]
+
     fun navigate(destination: Navigation, payload: String) {
         navigation.value = Pair(destination, payload)
     }
@@ -70,7 +75,8 @@ class ContactsViewModel @Inject constructor(
         isLoadingVisible.value = true
         viewModelScope.launch {
             try {
-                contacts.value = contactsRepository.getContacts(forced)
+                contactsMap = contactsRepository.getContacts(forced)
+                contacts.value = contactsMap.values.toList()
                 preferences.edit().putLong(CONTACTS_FETCH_TIMESTAMP_PREFS_KEY, Date().time).apply()
             } catch (ex: Exception) {
                 Log.e(LOG_TAG, "Failed to get contacts", ex)

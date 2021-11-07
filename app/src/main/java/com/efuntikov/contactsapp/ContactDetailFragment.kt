@@ -66,16 +66,7 @@ class ContactDetailFragment : Fragment() {
             return
         }
 
-        val selectedContactIndex: Int
-        try {
-            selectedContactIndex = payload.toInt()
-        } catch (ex: NumberFormatException) {
-            Log.e(LOG_TAG, "Failed to get selected contact index, invalid incoming payload", ex)
-            return
-        }
-
-        viewModel.getContacts().value?.let {
-            val contact = it[selectedContactIndex]
+        viewModel.getContactById(payload)?.let { contact ->
             contactNameView.text = contact.name
             phoneNumberView.text = contact.phone
             temperamentView.text = when (contact.temperament) {
