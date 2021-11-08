@@ -3,6 +3,7 @@ package com.efuntikov.contactsapp.domain.repository.contacts
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import com.efuntikov.contactsapp.ContactsViewModel
 import com.efuntikov.contactsapp.LOG_TAG
 import com.efuntikov.contactsapp.domain.entity.Contact
 import com.google.gson.Gson
@@ -15,9 +16,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.util.*
-import java.util.Collections.synchronizedList
 import java.util.Collections.synchronizedMap
-import kotlin.jvm.Throws
 
 class ContactsRepositoryImpl(
     private val applicationContext: Context,
@@ -29,21 +28,19 @@ class ContactsRepositoryImpl(
     private var contacts = synchronizedMap(mutableMapOf<String, Contact>())
 
     companion object {
-        private val DATA_SOURCE_1 =
+        const val CONTACTS_FETCH_TIMESTAMP_PREFS_KEY = "contacts_fetch_timestamp"
+        private val DATA_SOURCE_LIST = listOf(
             Pair(
                 "generated-01.json",
                 "https://raw.githubusercontent.com/SkbkonturMobile/mobile-test-droid/master/json/generated-01.json"
-            )
-        private val DATA_SOURCE_2 =
-            Pair(
+            ), Pair(
                 "generated-02.json",
                 "https://raw.githubusercontent.com/SkbkonturMobile/mobile-test-droid/master/json/generated-02.json"
-            )
-        private val DATA_SOURCE_3 =
-            Pair(
+            ), Pair(
                 "generated-03.json",
                 "https://raw.githubusercontent.com/SkbkonturMobile/mobile-test-droid/master/json/generated-03.json"
             )
+        )
     }
 
     @Throws(Exception::class)
@@ -51,9 +48,14 @@ class ContactsRepositoryImpl(
         if (forced) {
             contacts.clear()
             try {
-                File(applicationContext.filesDir, DATA_SOURCE_1.first).delete()
-                File(applicationContext.filesDir, DATA_SOURCE_2.first).delete()
-                File(applicationContext.filesDir, DATA_SOURCE_3.first).delete()
+                Log.d(LOG_TAG, "Clearing cached files")
+                DATA_SOURCE_LIST.forEach {
+                    File(applicationContext.filesDir, it.first).run {
+                        if (exists()) {
+                            delete()
+                        }
+                    }
+                }
             } catch (ex: SecurityException) {
                 Log.e(LOG_TAG, "Failed to clear the sources folder", ex)
             }
@@ -69,15 +71,18 @@ class ContactsRepositoryImpl(
     @Throws(Exception::class)
     private suspend fun fetchContacts(): ContactsMap {
         return withContext(Dispatchers.Main) {
-            val resource1 = async(Dispatchers.IO) { fetchContactByResource(DATA_SOURCE_1) }
-            val resource2 = async(Dispatchers.IO) { fetchContactByResource(DATA_SOURCE_2) }
-            val resource3 = async(Dispatchers.IO) { fetchContactByResource(DATA_SOURCE_3) }
+            val deferres = mutableListOf<Deferred<List<Contact>>>()
+            DATA_SOURCE_LIST.forEach {
+                deferres.add(async(Dispatchers.IO) { fetchContactByResource(it) })
+            }
 
-            val allResourcesDeferred = awaitAll(resource1, resource2, resource3)
+            val allResourcesDeferred = deferres.awaitAll()
             val result = mutableMapOf<String, Contact>()
-            allResourcesDeferred.map { list -> list.forEach { contact ->
-                contact.id?.let { id -> result.putIfAbsent(id, contact) }
-            } }
+            allResourcesDeferred.map { list ->
+                list.forEach { contact ->
+                    contact.id?.let { id -> result.putIfAbsent(id, contact) }
+                }
+            }
 
             return@withContext result
         }
@@ -85,11 +90,9 @@ class ContactsRepositoryImpl(
 
     @Throws(Exception::class)
     private fun fetchContactByResource(contactsResource: Pair<String, String>): List<Contact> {
-        Log.d(LOG_TAG, "Contacts fetch started: $contactsResource")
-
         var rawBytesResult = getFromFile(contactsResource.first)
         if (rawBytesResult == null) {
-
+            Log.d(LOG_TAG, "Fetching contacts data from network: ${contactsResource.second}")
             val request = Request.Builder().url(contactsResource.second).build()
 
             val response: Response
@@ -118,13 +121,14 @@ class ContactsRepositoryImpl(
 
     private fun getFromFile(fileName: String): ByteArray? {
         try {
-            val fileInputStream = applicationContext.openFileInput(fileName)
-            if (fileInputStream.available() > 0) {
-                Log.d(LOG_TAG, "Loading from file $fileName")
-                return fileInputStream.readBytes()
+            applicationContext.openFileInput(fileName).use {
+                if (it.available() > 0) {
+                    Log.d(LOG_TAG, "Loading from file $fileName")
+                    return it.readBytes()
+                }
             }
         } catch (ex: IOException) {
-            Log.e(LOG_TAG, "Failed to read temporary file $fileName, reason: ${ex.message}", ex)
+            Log.e(LOG_TAG, "Failed to read temporary file $fileName, reason: ${ex.message}")
         }
 
         Log.w(LOG_TAG, "File $fileName doesn't exist yet")
@@ -132,25 +136,17 @@ class ContactsRepositoryImpl(
     }
 
     private fun saveToFile(fileName: String, data: ByteArray) {
-        var contactsFile: FileOutputStream? = null
         try {
-            contactsFile = applicationContext.openFileOutput(fileName, Context.MODE_PRIVATE)
-            Log.d(LOG_TAG, "Saving data (size: ${data.size}) to file $fileName")
-            contactsFile.write(data)
+            applicationContext.openFileOutput(fileName, Context.MODE_PRIVATE).use {
+                Log.d(LOG_TAG, "Saving data (size: ${data.size}) to file $fileName")
+                it.write(data)
+            }
+            preferences.edit().putLong(CONTACTS_FETCH_TIMESTAMP_PREFS_KEY, Date().time).apply()
         } catch (ex: IOException) {
             Log.e(
                 LOG_TAG,
                 "Failed to create/write temporary file $fileName, reason: ${ex.message}", ex
             )
-        } finally {
-            try {
-                contactsFile?.let {
-                    it.flush()
-                    it.close()
-                }
-            } catch (ex: IOException) {
-                Log.d(LOG_TAG, "Failed to close/flush file stream for $fileName")
-            }
         }
     }
 }

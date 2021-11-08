@@ -7,8 +7,8 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.efuntikov.contactsapp.domain.entity.Contact
-import com.efuntikov.contactsapp.domain.repository.contacts.ContactsMap
 import com.efuntikov.contactsapp.domain.repository.contacts.ContactsRepository
+import com.efuntikov.contactsapp.domain.repository.contacts.ContactsRepositoryImpl.Companion.CONTACTS_FETCH_TIMESTAMP_PREFS_KEY
 import kotlinx.coroutines.launch
 import java.util.*
 import javax.inject.Inject
@@ -25,7 +25,6 @@ class ContactsViewModel @Inject constructor(
 
     companion object {
         private const val MINUTE_IN_MILLIS = 60 * 1000
-        private const val CONTACTS_FETCH_TIMESTAMP_PREFS_KEY = "contacts_fetch_timestamp"
     }
 
     private val isLoadingVisible: MutableLiveData<Boolean> = MutableLiveData(false)
@@ -33,7 +32,7 @@ class ContactsViewModel @Inject constructor(
     private val navigation: MutableLiveData<Pair<Navigation, String>> = MutableLiveData()
     private val error: MutableLiveData<String> = MutableLiveData()
 
-    private lateinit var contactsMap: ContactsMap
+    private var contactsMap: MutableMap<String, Contact>? = null
 
     fun isLoadingVisible(): LiveData<Boolean> = isLoadingVisible
 
@@ -55,17 +54,18 @@ class ContactsViewModel @Inject constructor(
         val reload = forced or expired
         if (reload) {
             contacts.value = emptyList()
+            contactsMap?.clear()
             loadContacts(reload)
         } else {
-            contacts.value?.let {
-                if (it.isEmpty()) {
+            contactsMap?.let { map ->
+                if (map.isEmpty()) {
                     loadContacts(reload)
                 }
             } ?: loadContacts(reload)
         }
     }
 
-    fun getContactById(contactId: String) = contactsMap[contactId]
+    fun getContactById(contactId: String) = contactsMap?.get(contactId)
 
     fun navigate(destination: Navigation, payload: String) {
         navigation.value = Pair(destination, payload)
@@ -75,9 +75,10 @@ class ContactsViewModel @Inject constructor(
         isLoadingVisible.value = true
         viewModelScope.launch {
             try {
-                contactsMap = contactsRepository.getContacts(forced)
-                contacts.value = contactsMap.values.toList()
-                preferences.edit().putLong(CONTACTS_FETCH_TIMESTAMP_PREFS_KEY, Date().time).apply()
+                (contactsRepository.getContacts(forced) as MutableMap<String, Contact>).let {
+                    contactsMap = it
+                    contacts.value = it.values.toList()
+                }
             } catch (ex: Exception) {
                 Log.e(LOG_TAG, "Failed to get contacts", ex)
                 error.value = "No network connection"
