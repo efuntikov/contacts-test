@@ -9,13 +9,14 @@ import android.widget.Filter
 import android.widget.Filterable
 import android.widget.ProgressBar
 import androidx.appcompat.widget.SearchView
+import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.navigation.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.efuntikov.contactsapp.domain.entity.Contact
-import com.efuntikov.contactsapp.domain.repository.contacts.ContactsMap
 import com.google.android.material.snackbar.Snackbar
 import java.lang.ref.WeakReference
 import javax.inject.Inject
@@ -33,10 +34,6 @@ class ContactsListFragment : Fragment() {
 
     private lateinit var viewModel: ContactsViewModel
     private val contactsQueryListener = ContactsQueryListener()
-
-    companion object {
-        fun newInstance() = ContactsListFragment()
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -97,7 +94,8 @@ class ContactsListFragment : Fragment() {
                 setPhone(contact.phone ?: "")
                 setOnClickListener {
                     contactId?.let { id ->
-                        viewModel.get()?.navigate(ContactsViewModel.Navigation.CONTACT_DETAIL, id)
+                        val bundle = bundleOf("contactId" to id)
+                        findNavController().navigate(R.id.action_contact_list_to_detail, bundle)
                     }
                 }
             }

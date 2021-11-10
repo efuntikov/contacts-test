@@ -16,6 +16,7 @@
             android:id="@+id/searchView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:theme="@style/ContactsSearchView"
             app:layout_scrollFlags="scroll|enterAlways"
             app:queryHint="Search contact"/>
 

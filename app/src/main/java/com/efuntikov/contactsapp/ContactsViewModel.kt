@@ -24,12 +24,12 @@ class ContactsViewModel @Inject constructor(
     }
 
     companion object {
+        const val CONTACT_ID_ARG_KEY = "contactId"
         private const val MINUTE_IN_MILLIS = 60 * 1000
     }
 
     private val isLoadingVisible: MutableLiveData<Boolean> = MutableLiveData(false)
     private val contacts: MutableLiveData<List<Contact>> = MutableLiveData()
-    private val navigation: MutableLiveData<Pair<Navigation, String>> = MutableLiveData()
     private val error: MutableLiveData<String> = MutableLiveData()
 
     private var contactsMap: MutableMap<String, Contact>? = null
@@ -37,8 +37,6 @@ class ContactsViewModel @Inject constructor(
     fun isLoadingVisible(): LiveData<Boolean> = isLoadingVisible
 
     fun getContacts(): LiveData<List<Contact>> = contacts
-
-    fun getNavigation(): LiveData<Pair<Navigation, String>> = navigation
 
     fun getError(): LiveData<String> = error
 
@@ -66,10 +64,6 @@ class ContactsViewModel @Inject constructor(
     }
 
     fun getContactById(contactId: String) = contactsMap?.get(contactId)
-
-    fun navigate(destination: Navigation, payload: String) {
-        navigation.value = Pair(destination, payload)
-    }
 
     private fun loadContacts(forced: Boolean) {
         isLoadingVisible.value = true

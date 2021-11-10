@@ -37,7 +37,6 @@ interface ApplicationComponent : AndroidInjector<ContactsApplication> {
         fun build(): ApplicationComponent
     }
 
-    fun inject(homeActivity: HomeActivity)
     fun inject(contactsListFragment: ContactsListFragment)
     fun inject(contactsDetailFragment: ContactDetailFragment)
 }

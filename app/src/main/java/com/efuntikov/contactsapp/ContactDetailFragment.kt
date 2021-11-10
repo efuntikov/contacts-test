@@ -9,14 +9,13 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import com.efuntikov.contactsapp.domain.entity.EducationPeriod
 import com.efuntikov.contactsapp.domain.entity.Temperament
-import com.efuntikov.contactsapp.util.FragmentArgumentDelegate
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
 
 class ContactDetailFragment : Fragment() {
 
-    private var payload by FragmentArgumentDelegate<String>()
+    private lateinit var payload: String
 
     private lateinit var contactNameView: TextView
     private lateinit var phoneNumberView: TextView
@@ -28,12 +27,6 @@ class ContactDetailFragment : Fragment() {
     lateinit var viewModelFactory: ViewModelFactory
 
     private lateinit var viewModel: ContactsViewModel
-
-    companion object {
-        fun newInstance(payload: String) = ContactDetailFragment().apply {
-            this.payload = payload
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,6 +41,8 @@ class ContactDetailFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        payload = arguments?.getString(ContactsViewModel.CONTACT_ID_ARG_KEY) ?: ""
 
         viewModel = ViewModelProvider(this, viewModelFactory)[ContactsViewModel::class.java]
 
